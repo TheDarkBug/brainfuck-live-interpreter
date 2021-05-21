@@ -29,6 +29,7 @@
 *.dylib
 
 # Executables
+bfli
 *.exe
 *.out
 *.app
