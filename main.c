@@ -2,28 +2,31 @@
 #include <string.h>
 #include <signal.h>
 
-char user_input[32768] = {0};
-int cell[32768] = {0}, current = 0, err = 0;
+char user_input[32768] = {0}, history[32768] = {0};
+int cell[32768] = {0}, current = 0, err = 0, history_counter = 0;
 FILE *file;
 
-void input_parser()
+void input_parser(char *input, int cell[], int *current)
 {
-	for (int i = 0; i < 32768 && user_input[i] != '\n'; i++)
+	for (int i = 0; i < 32768 && input[i] != '\n'; i++)
 	{
-		if (user_input[i] == '.')
-			printf("%c", (cell[current]));
-		else if (user_input[i] == ',')
+		if (input[i] == '.')
+			printf("%c", (cell[*current]));
+		else if (input[i] == ',')
 		{
-			cell[current] = getchar();
+			printf(", input: ");
+			cell[*current] = getchar();
 			while (getchar() != '\n')
 				;
 		}
-		else if (user_input[i] == '[')
+		else if (input[i] == '[')
 		{
 			printf("Not yet implemented, idk how to do it...");
 		}
-		cell[current] += (user_input[i] == '+') - (user_input[i] == '-') + ((255 - cell[current]) * (cell[current] < 0));
-		current += (user_input[i] == '>') - (user_input[i] == '<') * (current > 0);
+		cell[*current] += (input[i] == '+') - (input[i] == '-') + ((255 - cell[*current]) * (cell[*current] < 0));
+		*current += (input[i] == '>') - (input[i] == '<') * (*current > 0);
+		history[history_counter] = input[i] * (input[i] == '+' || input[i] == '-' || input[i] == '>' || input[i] == '<' || input[i] == '.' || input[i] == ',' || input[i] == '[' || input[i] == ']');
+		history_counter += input[i] == '+' || input[i] == '-' || input[i] == '>' || input[i] == '<' || input[i] == '.' || input[i] == ',' || input[i] == '[' || input[i] == ']';
 	}
 }
 
@@ -53,7 +56,7 @@ int main(int argc, char **argv)
 		}
 		fgets(user_input, sizeof(user_input), file);
 		fclose(file);
-		input_parser();
+		input_parser(user_input, cell, &current);
 		printf("\n");
 		return err;
 	}
@@ -89,23 +92,27 @@ int main(int argc, char **argv)
 			{
 				fgets(user_input, sizeof(user_input), file);
 				fclose(file);
-				input_parser();
+				input_parser(user_input, cell, &current);
 			}
 		}
 		else if (strcmp(user_input, "pac\n") == 0)
 		{
-			for (int i = 0; i < 32768 && cell[i] != 0; i++)
-				printf("%i	", i);
+			for (int i = 0; i < 32768; i++)
+				if (cell[i] != 0)
+					printf("%i	", i);
 			printf("\n");
-			for (int i = 0; i < 32768 && cell[i] != 0; i++)
-				printf("%i	", cell[i]);
+			for (int i = 0; i < 32768; i++)
+				if (cell[i] != 0)
+					printf("%i	", cell[i]);
 		}
 		else if (strcmp(user_input, "pcv\n") == 0)
 			printf("%i", (cell[current]));
 		else if (strcmp(user_input, "pcp\n") == 0)
 			printf("%i", current);
+		else if (strcmp(user_input, "phi\n") == 0)
+			printf("%s", history);
 		else
-			input_parser();
+			input_parser(user_input, cell, &current);
 		if (argc > 1)
 		{
 			printf("\n");
