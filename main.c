@@ -1,9 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <stdlib.h>
 
 char user_input[32768] = {0}, history[32768] = {0};
-int cell[32768] = {0}, current = 0, err = 0, history_counter = 0;
+int cell[32768] = {0}, current = 0, err = 0, history_counter = 0, loops[2][32768] = {0}, loop_counter = 0;
 FILE *file;
 
 void input_parser(char *input, int cell[], int *current)
@@ -21,7 +22,18 @@ void input_parser(char *input, int cell[], int *current)
 		}
 		else if (input[i] == '[')
 		{
-			printf("Not yet implemented, idk how to do it...");
+			loop_counter++;
+			loops[0][loop_counter] = history_counter;
+			loops[1][loop_counter] = i;
+		}
+		else if (input[i] == ']')
+		{
+			if (cell[*current] > 0)
+			{
+				i = loops[1][loop_counter];
+			}
+			else
+				loop_counter--;
 		}
 		cell[*current] += (input[i] == '+') - (input[i] == '-') + ((255 - cell[*current]) * (cell[*current] < 0));
 		*current += (input[i] == '>') - (input[i] == '<') * (*current > 0);
@@ -30,8 +42,36 @@ void input_parser(char *input, int cell[], int *current)
 	}
 }
 
+char *file_to_mem(const char *filename)
+{
+	FILE *source = fopen(filename, "r");
+	char *target = NULL;
+	size_t size = 0;
+
+	if (source == NULL)
+	{
+		err++;
+		fprintf(stderr, "Error %i: file %s does not exist\n", err, filename);
+		exit(err);
+	}
+
+	//get file size
+	fseek(source, 0, SEEK_END);
+	size = ftell(source);
+	rewind(source);
+
+	// actually read the file
+	target = malloc((size + 1) * sizeof(*target));
+	fread(target, size, 1, source);
+	target[size] = '\0';
+
+	fclose(source);
+	return target;
+}
+
 void ctrlc_handler()
 {
+	printf("\n>>> ");
 	for (int i = 0; i < 32768; i++)
 	{
 		user_input[i] = 0;
@@ -47,15 +87,8 @@ int main(int argc, char **argv)
 
 	if (argc > 1)
 	{
-		file = fopen(argv[1], "r");
-		if (file == NULL)
-		{
-			err++;
-			fprintf(stderr, "Error %i: file %s does not exist\n", err, argv[1]);
-			return err;
-		}
-		fgets(user_input, sizeof(user_input), file);
-		fclose(file);
+		strcpy(user_input, file_to_mem(argv[1]));
+		// strcpy(history, user_input);
 		input_parser(user_input, cell, &current);
 		printf("\n");
 		return err;
