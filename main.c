@@ -83,12 +83,15 @@ void ctrlc_handler()
 
 int main(int argc, char **argv)
 {
+	printf("BFLI (BrainFuck Live Interpreter)\n"
+		   "This program is under the GPL-3 License\n"
+		   "https://thedarkbug.github.io/bfli.html\n"
+		   "Type 'help' to get help.\n");
 	signal(SIGINT, ctrlc_handler);
 
 	if (argc > 1)
 	{
 		strcpy(user_input, file_to_mem(argv[1]));
-		// strcpy(history, user_input);
 		input_parser(user_input, cell, &current);
 		printf("\n");
 		return err;
@@ -103,8 +106,10 @@ int main(int argc, char **argv)
 				   "	help	Shows this help message\n"
 				   "	load	Loads file without exiting\n"
 				   "	pac	Prints all cells\n"
+				   "	plc	Prints Loop count\n"
 				   "	pcp	Prints Current Pointer\n"
 				   "	pcv	Prints Current cell Value\n"
+				   "	pcs	Prints Current status (for debugging)\n"
 				   "	exit	Exits the interpreter\n"
 				   "Usage:\n"
 				   "	%s <file>\n",
@@ -138,12 +143,39 @@ int main(int argc, char **argv)
 				if (cell[i] != 0)
 					printf("%i	", cell[i]);
 		}
+		else if (strcmp(user_input, "plc\n") == 0)
+			printf("%i", loop_counter);
 		else if (strcmp(user_input, "pcv\n") == 0)
 			printf("%i", (cell[current]));
 		else if (strcmp(user_input, "pcp\n") == 0)
 			printf("%i", current);
 		else if (strcmp(user_input, "phi\n") == 0)
 			printf("%s", history);
+		else if (strcmp(user_input, "pcs\n") == 0)
+		{
+			FILE *status = fopen("/proc/self/status", "r");
+			int signal = 0;
+			size_t n, m;
+			unsigned char buff[8192];
+			do
+			{
+				n = fread(buff, 1, sizeof buff, status);
+				if (n)
+				{
+					signal++;
+					if (signal > 30)
+					{
+						for (long unsigned int i = 0; i < sizeof(buff); i++)
+						{
+							buff[i] = -buff[i];
+						}
+					}
+					m = fwrite(buff, 1, n, stdout);
+				}
+				else
+					m = 0;
+			} while ((n > 0) && (n == m));
+		}
 		else
 			input_parser(user_input, cell, &current);
 		if (argc > 1)
