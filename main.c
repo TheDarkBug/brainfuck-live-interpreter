@@ -41,37 +41,28 @@ int assembler(FILE* output, char* input, int* loop_counter) {
 			fprintf(output, "%sadd byte [cell+rax], %i\n", indent, plus_count);
 			plus_count = 0;
 			i--;
-		}
-		if (input[i] == '-') {
+		} else if (input[i] == '-') {
 			while (input[i++] == '-') minus_count++;
 			fprintf(output, "%ssub byte [cell+rax], %i\n", indent, minus_count);
 			minus_count = 0;
 			i--;
 		}
-		if (input[i] == '.') {
-			while (input[i++] == '.') fprintf(output, "%scall dot\n", indent);
-			i--;
-		}
-		if (input[i] == '[') {
-			while (input[i++] == '[') {
-				fprintf(output, "%sloop%i:\n", indent, (*loop_counter)++);
-				if (realloc(indent, 4 * (++indent_count)) == NULL) {
-					fprintf(stderr, "Failed to realloc indent!\n");
-					return 1;
-				}
-				strcat(indent, "    ");
+		if (input[i] == '.')
+			fprintf(output, "%scall dot\n", indent);
+		else if (input[i] == '[') {
+			fprintf(output, "%sloop%i:\n", indent, (*loop_counter)++);
+			if (realloc(indent, 4 * (++indent_count)) == NULL) {
+				fprintf(stderr, "Failed to realloc indent!\n");
+				return 1;
 			}
-			i--;
-		}
-		if (input[i] == ']') {
-			while (input[i++] == ']') {
-				fprintf(output, "%sjnz loop%i\n", indent, (*loop_counter) - 1);
-				indent[(indent_count--) * 4] = '\0';
-			}
-			i--;
-		}
-		if (input[i] == '>') fprintf(output, "%sinc rax\n", indent);
-		if (input[i] == '<') fprintf(output, "%sdec rax\n", indent);
+			strcat(indent, "    ");
+		} else if (input[i] == ']') {
+			fprintf(output, "%sjnz loop%i\n", indent, (*loop_counter) - 1);
+			indent[(indent_count--) * 4] = '\0';
+		} else if (input[i] == '>')
+			fprintf(output, "%sinc rax\n", indent);
+		else if (input[i] == '<')
+			fprintf(output, "%sdec rax\n", indent);
 	}
 	fprintf(output, "    mov rdi, 0x0\n    call exit\ndot:\n    push rax\n    mov rdx, [cell+rax]\n    push rdx\n    mov rdi, 0x1\n    mov rsi, rsp\n    mov rdx, 0x1\n    mov rax, 0x1\n    syscall\n    pop rax\n    pop rax\n    ret\nexit:\n    mov rax, 0x3c\n    syscall\nsection .data\ncell: times 32768 db 0\n");
 	fclose(output);
