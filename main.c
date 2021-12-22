@@ -1,7 +1,8 @@
-#include <signal.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 void input_parser(char* input, int cell[], int loops[2][32768], char* history, int* current, int* loop_counter, int* history_counter) {
 	for (int i = 0; i < 32768 && input[i] != '\n'; i++) {
@@ -29,6 +30,12 @@ void input_parser(char* input, int cell[], int loops[2][32768], char* history, i
 	}
 }
 
+int compile_asm(FILE* output) {
+	fprintf(output, "Hello\n");
+	fclose(output);
+	return 0;
+}
+
 char* file_to_mem(const char* filename, int* err, size_t* size) {
 	FILE* source = fopen(filename, "r");
 	char* target = NULL;
@@ -36,16 +43,16 @@ char* file_to_mem(const char* filename, int* err, size_t* size) {
 		size = malloc(sizeof(size_t));
 
 	if (source == NULL) {
-		fprintf(stderr, "Error %i: file %s does not exist\n", ++(*err), filename);
+		fprintf(stderr, "Error %i: infile %s does not exist\n", ++(*err), filename);
 		exit(*err);
 	}
 
-	// get file size
+	// get infile size
 	fseek(source, 0, SEEK_END);
 	(*size) = ftell(source);
 	rewind(source);
 
-	// actually read the file
+	// actually read the infile
 	target = malloc(((*size) + 1) * sizeof(*target));
 	fread(target, (*size), 1, source);
 	target[*size] = '\0';
@@ -57,18 +64,43 @@ char* file_to_mem(const char* filename, int* err, size_t* size) {
 int main(int argc, char** argv) {
 	char user_input[32768] = {0}, history[32768] = {0};
 	int cell[32768] = {0}, current = 0, err = 0, history_counter = 0, loops[2][32768] = {0}, loop_counter = 0;
-	FILE* file;
-	if (argc > 1) {
-		size_t input_size = 0;
-		strcpy(user_input, file_to_mem(argv[1], &err, &input_size));
-		for (; input_size > 0; input_size--) {
-			// if (user_input[input_size] == '\n') user_input[input_size] = ' ';
-			int is_nl			   = (user_input[input_size] == '\n');
-			user_input[input_size] = (user_input[input_size] * !is_nl) + (' ' * is_nl);
+	int opt = 0;
+	FILE *infile, *outfile;
+	while ((opt = getopt(argc, argv, "i:o:")) != -1) {
+		switch (opt) {
+		case 'i':
+			if (!optarg) {
+				fprintf(stderr, "A file name is required\n");
+				return 1;
+			}
+			size_t input_size = 0;
+
+			strcpy(user_input, file_to_mem(optarg, &err, &input_size));
+			for (; input_size > 0; input_size--) {
+				// if (user_input[input_size] == '\n') user_input[input_size] = ' ';
+				int is_nl			   = (user_input[input_size] == '\n');
+				user_input[input_size] = (user_input[input_size] * !is_nl) + (' ' * is_nl);
+			}
+			input_parser(user_input, cell, loops, history, &current, &loop_counter, &history_counter);
+			printf("\n");
+			return err;
+		case 'o':
+			if (!optarg) {
+				fprintf(stderr, "A file name is required\n");
+				return 1;
+			}
+			outfile = fopen(optarg, "w");
+			if (outfile == NULL) {
+				fprintf(stderr, "Error: cannot create %s: permission denied!\n", optarg);
+				return 1;
+			}
+			compile_asm(stdout);
+			fclose(outfile);
+			return err;
+
+		default:
+			break;
 		}
-		input_parser(user_input, cell, loops, history, &current, &loop_counter, &history_counter);
-		printf("\n");
-		return err;
 	}
 	printf("BFLI (BrainFuck Live Interpreter)\n"
 		   "This program is under the GPL-3 License\n"
@@ -89,18 +121,18 @@ int main(int argc, char** argv) {
 				   "	reset	Resets all cells and loop counter\n"
 				   "	exit	Exits the interpreter\n"
 				   "Usage:\n"
-				   "	%s <file>\n",
+				   "	%s <option> <option arg>\n",
 				   argv[0]);
 		} else if (strcmp(user_input, "load\n") == 0) {
 			printf("File name: ");
 			fgets(user_input, 32768, stdin);
 			user_input[strlen(user_input) - 1] = '\0';
-			file							   = fopen(user_input, "r");
-			if (file == NULL)
-				fprintf(stderr, "Error %i: file %s does not exist", ++err, user_input);
+			infile							   = fopen(user_input, "r");
+			if (infile == NULL)
+				fprintf(stderr, "Error %i: infile %s does not exist", ++err, user_input);
 			else {
-				fgets(user_input, sizeof(user_input), file);
-				fclose(file);
+				fgets(user_input, sizeof(user_input), infile);
+				fclose(infile);
 				input_parser(user_input, cell, loops, history, &current, &loop_counter, &history_counter);
 			}
 		} else if (strcmp(user_input, "pac\n") == 0) {

@@ -11,7 +11,7 @@ install: build
 	cp $(NAME) /usr/bin/$(NAME)
 
 run: build
-	./$(NAME)
+	./$(NAME) -o example.bf
 
 clean:
 	rm $(NAME)
