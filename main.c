@@ -53,8 +53,6 @@ char* file_to_mem(const char* filename, int* err) {
 	return target;
 }
 
-void ctrlc_handler() { printf("\n>>> "); }
-
 int main(int argc, char** argv) {
 	char user_input[32768] = {0}, history[32768] = {0};
 	int cell[32768] = {0}, current = 0, err = 0, history_counter = 0, loops[2][32768] = {0}, loop_counter = 0;
@@ -63,7 +61,6 @@ int main(int argc, char** argv) {
 		   "This program is under the GPL-3 License\n"
 		   "https://thedarkbug.github.io/bfli.html\n"
 		   "Type 'help' to get help.\n");
-	signal(SIGINT, ctrlc_handler);
 
 	if (argc > 1) {
 		strcpy(user_input, file_to_mem(argv[1], &err));
