@@ -13,19 +13,19 @@ void input_parser(char* input, int cell[], int loops[2][32768], char* history, i
 			while (getchar() != '\n')
 				;
 		} else if (input[i] == '[') {
-			// *loop_counter++;
+			(*loop_counter)++;
 			loops[0][*loop_counter] = *history_counter;
 			loops[1][*loop_counter] = i;
 		} else if (input[i] == ']') {
 			if (cell[*current] > 0)
 				i = loops[1][*loop_counter];
 			else
-				loop_counter--;
+				(*loop_counter)--;
 		}
 		cell[*current] += (input[i] == '+') - (input[i] == '-') + ((255 - cell[*current]) * (cell[*current] < 0));
-		*current += (input[i] == '>') - (input[i] == '<') * (*current > 0);
+		(*current) += (input[i] == '>') - (input[i] == '<') * ((*current) > 0);
 		history[*history_counter] = input[i] * (input[i] == '+' || input[i] == '-' || input[i] == '>' || input[i] == '<' || input[i] == '.' || input[i] == ',' || input[i] == '[' || input[i] == ']');
-		history_counter += input[i] == '+' || input[i] == '-' || input[i] == '>' || input[i] == '<' || input[i] == '.' || input[i] == ',' || input[i] == '[' || input[i] == ']';
+		(*history_counter) += input[i] == '+' || input[i] == '-' || input[i] == '>' || input[i] == '<' || input[i] == '.' || input[i] == ',' || input[i] == '[' || input[i] == ']';
 	}
 }
 
@@ -35,7 +35,7 @@ char* file_to_mem(const char* filename, int* err) {
 	size_t size	 = 0;
 
 	if (source == NULL) {
-		fprintf(stderr, "Error %i: file %s does not exist\n", ++*err, filename);
+		fprintf(stderr, "Error %i: file %s does not exist\n", ++(*err), filename);
 		exit(*err);
 	}
 
@@ -83,6 +83,7 @@ int main(int argc, char** argv) {
 				   "	pcp	Prints Current Pointer\n"
 				   "	pcv	Prints Current cell Value\n"
 				   "	pcs	Prints Current status (for debugging)\n"
+				   "	reset	Resets all cells and loop counter\n"
 				   "	exit	Exits the interpreter\n"
 				   "Usage:\n"
 				   "	%s <file>\n",
@@ -130,6 +131,15 @@ int main(int argc, char** argv) {
 				} else
 					m = 0;
 			} while ((n > 0) && (n == m));
+		} else if (strcmp(user_input, "reset\n") == 0) {
+			memset(user_input, 0, sizeof(user_input));
+			memset(history, 0, sizeof(history));
+			memset(cell, 0, sizeof(cell));
+			memset(loops, 0, sizeof(loops));
+			err				= 0;
+			history_counter = 0;
+			loop_counter	= 0;
+
 		} else
 			input_parser(user_input, cell, loops, history, &current, &loop_counter, &history_counter);
 		if (argc > 1) {
