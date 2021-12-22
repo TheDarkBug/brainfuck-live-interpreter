@@ -30,22 +30,59 @@ void input_parser(char* input, int cell[], int loops[2][32768], char* history, i
 	}
 }
 
-int compile_asm(FILE* output) {
-	fprintf(output, "Hello\n");
+int assembler(FILE* output, char* input, int* loop_counter) {
+	int plus_count = 0, minus_count = 0, indent_count = 0;
+	char* indent = malloc(5);
+	sprintf(indent, "    ");
+	fprintf(output, "section .text\nglobal _start\n_start:\n%sxor rax, rax\n", indent);
+	for (int i = 0; i < 32768 && input[i] != '\n'; i++) {
+		if (input[i] == '+') {
+			while (input[i++] == '+') plus_count++;
+			fprintf(output, "%sadd byte [cell+rax], %i\n", indent, plus_count);
+			plus_count = 0;
+			i--;
+		}
+		if (input[i] == '-') {
+			while (input[i++] == '-') minus_count++;
+			fprintf(output, "%ssub byte [cell+rax], %i\n", indent, minus_count);
+			minus_count = 0;
+			i--;
+		}
+		if (input[i] == '.') {
+			while (input[i++] == '.') fprintf(output, "%scall dot\n", indent);
+			i--;
+		}
+		if (input[i] == '[') {
+			while (input[i++] == '[') {
+				fprintf(output, "%sloop%i:\n", indent, (*loop_counter)++);
+				if (realloc(indent, 4 * (++indent_count)) == NULL) {
+					fprintf(stderr, "Failed to realloc indent!\n");
+					return 1;
+				}
+				strcat(indent, "    ");
+			}
+			i--;
+		}
+		if (input[i] == ']') {
+			while (input[i++] == ']') {
+				fprintf(output, "%sjnz loop%i\n", indent, (*loop_counter) - 1);
+				indent[(indent_count--) * 4] = '\0';
+			}
+			i--;
+		}
+		if (input[i] == '>') fprintf(output, "%sinc rax\n", indent);
+		if (input[i] == '<') fprintf(output, "%sdec rax\n", indent);
+	}
+	fprintf(output, "    mov rdi, 0x0\n    call exit\ndot:\n    push rax\n    mov rdx, [cell+rax]\n    push rdx\n    mov rdi, 0x1\n    mov rsi, rsp\n    mov rdx, 0x1\n    mov rax, 0x1\n    syscall\n    pop rax\n    pop rax\n    ret\nexit:\n    mov rax, 0x3c\n    syscall\nsection .data\ncell: times 32768 db 0\n");
 	fclose(output);
 	return 0;
 }
 
-char* file_to_mem(const char* filename, int* err, size_t* size) {
-	FILE* source = fopen(filename, "r");
+char* file_to_mem(FILE* source, size_t* size) {
+	// FILE* source = fopen(filename, "r");
 	char* target = NULL;
 	if (size == NULL)
 		size = malloc(sizeof(size_t));
-
-	if (source == NULL) {
-		fprintf(stderr, "Error %i: infile %s does not exist\n", ++(*err), filename);
-		exit(*err);
-	}
 
 	// get infile size
 	fseek(source, 0, SEEK_END);
@@ -61,30 +98,39 @@ char* file_to_mem(const char* filename, int* err, size_t* size) {
 	return target;
 }
 
+void parse_file(FILE* file, char* user_input) {
+	size_t input_size = 0;
+
+	strcpy(user_input, file_to_mem(file, &input_size));
+	for (; input_size > 0; input_size--) {
+		// if (user_input[input_size] == '\n') user_input[input_size] = ' ';
+		int is_nl			   = (user_input[input_size] == '\n');
+		user_input[input_size] = (user_input[input_size] * !is_nl) + (' ' * is_nl);
+	}
+}
+
 int main(int argc, char** argv) {
 	char user_input[32768] = {0}, history[32768] = {0};
 	int cell[32768] = {0}, current = 0, err = 0, history_counter = 0, loops[2][32768] = {0}, loop_counter = 0;
 	int opt = 0;
 	FILE *infile, *outfile;
+	int opt_infile = 0, opt_outfile = 0;
 	while ((opt = getopt(argc, argv, "i:o:")) != -1) {
 		switch (opt) {
 		case 'i':
+			opt_infile = 1;
 			if (!optarg) {
 				fprintf(stderr, "A file name is required\n");
 				return 1;
 			}
-			size_t input_size = 0;
-
-			strcpy(user_input, file_to_mem(optarg, &err, &input_size));
-			for (; input_size > 0; input_size--) {
-				// if (user_input[input_size] == '\n') user_input[input_size] = ' ';
-				int is_nl			   = (user_input[input_size] == '\n');
-				user_input[input_size] = (user_input[input_size] * !is_nl) + (' ' * is_nl);
+			infile = fopen(optarg, "r");
+			if (infile == NULL) {
+				fprintf(stderr, "Error %i: file %s does not exist\n", ++err, optarg);
+				return err;
 			}
-			input_parser(user_input, cell, loops, history, &current, &loop_counter, &history_counter);
-			printf("\n");
-			return err;
+			break;
 		case 'o':
+			opt_outfile = 1;
 			if (!optarg) {
 				fprintf(stderr, "A file name is required\n");
 				return 1;
@@ -94,14 +140,24 @@ int main(int argc, char** argv) {
 				fprintf(stderr, "Error: cannot create %s: permission denied!\n", optarg);
 				return 1;
 			}
-			compile_asm(stdout);
-			fclose(outfile);
-			return err;
+			break;
 
 		default:
 			break;
 		}
 	}
+
+	if (opt_infile || opt_outfile) {
+		parse_file(infile, user_input);
+		if (opt_infile && !opt_outfile) {
+			input_parser(user_input, cell, loops, history, &current, &loop_counter, &history_counter);
+			printf("\n");
+		} else if (opt_infile && opt_outfile) {
+			assembler(outfile, user_input, &loop_counter);
+		}
+		return err;
+	}
+
 	printf("BFLI (BrainFuck Live Interpreter)\n"
 		   "This program is under the GPL-3 License\n"
 		   "https://thedarkbug.github.io/bfli.html\n"

@@ -1,5 +1,5 @@
 CC = cc
-CFLAGS = -O3
+CFLAGS = -O2
 FILES = main.c
 LDFLAGS = 
 NAME = "bfli"
@@ -11,12 +11,12 @@ install: build
 	cp $(NAME) /usr/bin/$(NAME)
 
 run: build
-	./$(NAME) -o example.bf
+	./$(NAME)
 
 clean:
 	rm $(NAME)
 
-debug: CFLAGS = -g -Wall -Wextra -D DEBUG
+debug: CFLAGS = -g -Wall -Wextra -D DEBUG -O0
 debug: build
 debug_run: debug run
 debug_gdb: debug
