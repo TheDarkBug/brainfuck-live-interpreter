@@ -57,17 +57,16 @@ int main(int argc, char** argv) {
 	char user_input[32768] = {0}, history[32768] = {0};
 	int cell[32768] = {0}, current = 0, err = 0, history_counter = 0, loops[2][32768] = {0}, loop_counter = 0;
 	FILE* file;
-	printf("BFLI (BrainFuck Live Interpreter)\n"
-		   "This program is under the GPL-3 License\n"
-		   "https://thedarkbug.github.io/bfli.html\n"
-		   "Type 'help' to get help.\n");
-
 	if (argc > 1) {
 		strcpy(user_input, file_to_mem(argv[1], &err));
 		input_parser(user_input, cell, loops, history, &current, &loop_counter, &history_counter);
 		printf("\n");
 		return err;
 	}
+	printf("BFLI (BrainFuck Live Interpreter)\n"
+		   "This program is under the GPL-3 License\n"
+		   "https://thedarkbug.github.io/bfli.html\n"
+		   "Type 'help' to get help.\n");
 
 	printf(">>> ");
 	while (fgets(user_input, 32768, stdin) && strcmp(user_input, "exit\n") != 0) {
