@@ -29,10 +29,11 @@ void input_parser(char* input, int cell[], int loops[2][32768], char* history, i
 	}
 }
 
-char* file_to_mem(const char* filename, int* err) {
+char* file_to_mem(const char* filename, int* err, size_t* size) {
 	FILE* source = fopen(filename, "r");
 	char* target = NULL;
-	size_t size	 = 0;
+	if (size == NULL)
+		size = malloc(sizeof(size_t));
 
 	if (source == NULL) {
 		fprintf(stderr, "Error %i: file %s does not exist\n", ++(*err), filename);
@@ -41,13 +42,13 @@ char* file_to_mem(const char* filename, int* err) {
 
 	// get file size
 	fseek(source, 0, SEEK_END);
-	size = ftell(source);
+	(*size) = ftell(source);
 	rewind(source);
 
 	// actually read the file
-	target = malloc((size + 1) * sizeof(*target));
-	fread(target, size, 1, source);
-	target[size] = '\0';
+	target = malloc(((*size) + 1) * sizeof(*target));
+	fread(target, (*size), 1, source);
+	target[*size] = '\0';
 
 	fclose(source);
 	return target;
@@ -58,7 +59,13 @@ int main(int argc, char** argv) {
 	int cell[32768] = {0}, current = 0, err = 0, history_counter = 0, loops[2][32768] = {0}, loop_counter = 0;
 	FILE* file;
 	if (argc > 1) {
-		strcpy(user_input, file_to_mem(argv[1], &err));
+		size_t input_size = 0;
+		strcpy(user_input, file_to_mem(argv[1], &err, &input_size));
+		for (; input_size > 0; input_size--) {
+			// if (user_input[input_size] == '\n') user_input[input_size] = ' ';
+			int is_nl			   = (user_input[input_size] == '\n');
+			user_input[input_size] = (user_input[input_size] * !is_nl) + (' ' * is_nl);
+		}
 		input_parser(user_input, cell, loops, history, &current, &loop_counter, &history_counter);
 		printf("\n");
 		return err;
