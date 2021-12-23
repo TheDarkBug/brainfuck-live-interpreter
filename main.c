@@ -71,19 +71,63 @@ int assembler(FILE* output, char* input, int* loop_counter) {
 	return 0;
 }
 
+int cc(FILE* output, char* input) {
+	int op_count = 0;
+	fprintf(output, "#include <stdio.h>\n#include <unistd.h>\nint main(void){\nchar cells[32768]={0};\nint current=0;\n");
+	for (int i = 0; i < 32768 && input[i] != '\n'; i++) {
+		if (input[i] == '+' || input[i] == '-') {
+			while (input[i] == '+' || input[i] == '-') {
+				op_count++;
+				i++;
+			}
+			fprintf(output, "cells[current]%c=%i;\n", input[i - 1], op_count);
+			op_count = 0;
+			i--;
+		}
+		if (input[i] == '.')
+			fprintf(output, "printf(\"%%c\", cells[current]);\n");
+		if (input[i] == ',')
+			fprintf(output, "\n");
+		else if (input[i] == '[')
+			fprintf(output, "while(cells[current]){\n");
+		else if (input[i] == ']')
+			fprintf(output, "}\n");
+		else if (input[i] == '>')
+			fprintf(output, "current++;\n");
+		else if (input[i] == '<')
+			fprintf(output, "current--;\n");
+	}
+	fprintf(output, "return 0;\n}\n");
+	fclose(output);
+	return 0;
+}
+
 int compiler(char* fname, char* input, char lang, int* loop_counter) {
+	char dir_name[] = "/tmp/tmp.bfli.XXXXXX";
+	mkdtemp(dir_name);
 	if (lang == 'a') {
-		char dir_name[] = "/tmp/tmp.bfli.XXXXXX";
-		mkdtemp(dir_name);
 		char* asm_fname = malloc(strlen(dir_name) + 10);
 		sprintf(asm_fname, "%s/temp.asm", dir_name);
 		FILE* temp_asmfp = fopen(asm_fname, "w");
 		assembler(temp_asmfp, input, loop_counter);
-		char* command = malloc(strlen("nasm -f elf64 -o /.o ; ld /.o -o ") + (strlen(dir_name) * 2) + (strlen(fname) * 3) + 1);
+		char command[1500] /* = malloc((strlen(dir_name) * 2) + (strlen(fname) * 3) + 35) */; // idk why but malloc here does not work
 		sprintf(command, "nasm -f elf64 -o %s/%s.o %s; ld %s/%s.o -o %s", dir_name, fname, asm_fname, dir_name, fname, fname);
 		system(command);
-		rmdir(dir_name);
+		// free(command);
+	} else if (lang == 'c') {
+		char* cfname = malloc(strlen(dir_name) + 8);
+		sprintf(cfname, "%s/temp.c", dir_name);
+		FILE* temp_cfile = fopen(cfname, "w");
+		cc(temp_cfile, input);
+		char* command = malloc(strlen(fname) + strlen(cfname) + 10);
+		sprintf(command, "gcc -o %s %s", fname, cfname);
+		printf("%s\n", dir_name);
+		system(command);
+		free(command);
 	}
+	char* rmcmd = malloc(strlen(dir_name) + 9);
+	sprintf(rmcmd, "rm -rf %s", dir_name);
+	system(rmcmd);
 	return 0;
 }
 char* file_to_mem(FILE* source, size_t* size) {
@@ -179,8 +223,8 @@ int main(int argc, char** argv) {
 		} else if (opt_infile && (opt_outfile || opt_compile)) {
 			if (opt_lang == 'a' && !opt_compile)
 				assembler(outfile, user_input, &loop_counter);
-			// else if (opt_lang == 'c')
-			// 	cc(outfile, user_input, &loop_counter);
+			else if (opt_lang == 'c' && !opt_compile)
+				cc(outfile, user_input);
 			if (opt_compile)
 				compiler(bin_file_name, user_input, opt_lang, &loop_counter);
 		}
