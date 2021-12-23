@@ -49,6 +49,8 @@ int assembler(FILE* output, char* input, int* loop_counter) {
 		}
 		if (input[i] == '.')
 			fprintf(output, "%scall dot\n", indent);
+		if (input[i] == ',')
+			fprintf(output, "%scall comma\n", indent);
 		else if (input[i] == '[') {
 			fprintf(output, "%sloop%i:\n", indent, (*loop_counter)++);
 			if (realloc(indent, 4 * (++indent_count)) == NULL) {
@@ -64,7 +66,7 @@ int assembler(FILE* output, char* input, int* loop_counter) {
 		else if (input[i] == '<')
 			fprintf(output, "%sdec rax\n", indent);
 	}
-	fprintf(output, "    mov rdi, 0x0\n    call exit\ndot:\n    push rax\n    mov rdx, [cell+rax]\n    push rdx\n    mov rdi, 0x1\n    mov rsi, rsp\n    mov rdx, 0x1\n    mov rax, 0x1\n    syscall\n    pop rax\n    pop rax\n    ret\nexit:\n    mov rax, 0x3c\n    syscall\nsection .data\ncell: times 32768 db 0\n");
+	fprintf(output, "    mov rdi, 0x0\n    call exit\ndot:\n    push rax\n    mov rdx, [cell+rax]\n    push rdx\n    mov rdi, 0x1\n    mov rsi, rsp\n    mov rdx, 0x1\n    mov rax, 0x1\n    syscall\n    pop rax\n    pop rax\n    ret\ncomma:\n    push rax\n    mov rdi, 0x0\n    mov rsi, readbuff\n    mov rdx, 0x1\n    mov rax, 0x0\n    syscall\n    pop rax\n    mov rdx, [readbuff]\n    mov [cell+rax], rdx\n    ret\nexit:\n    mov rax, 0x3c\n    syscall\nsection .data\ncell: times 32768 db 0x0\nreadbuff: db 0x0\n");
 	fclose(output);
 	return 0;
 }
