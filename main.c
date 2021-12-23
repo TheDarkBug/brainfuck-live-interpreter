@@ -121,7 +121,6 @@ int compiler(char* fname, char* input, char lang, int* loop_counter) {
 		cc(temp_cfile, input);
 		char* command = malloc(strlen(fname) + strlen(cfname) + 10);
 		sprintf(command, "gcc -o %s %s", fname, cfname);
-		printf("%s\n", dir_name);
 		system(command);
 		free(command);
 	}
