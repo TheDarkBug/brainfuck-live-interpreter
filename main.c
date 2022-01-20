@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -160,47 +161,31 @@ void parse_file(FILE* file, char* user_input) {
 	}
 }
 
+void usage(char* program) {
+	printf("Usage: %s [options] <file>\n"
+		   "Options:\n"
+		   "\t-c\tCompile the source code\n"
+		   "\t-h\tPrint this help\n"
+		   "\t-l\tChoose compile language: 'a'ssembly or 'c'\n"
+		   "\t-o\tOutput file\n",
+		   program);
+}
+
 int main(int argc, char** argv) {
-	char user_input[32768] = {0}, history[32768] = {0}, *bin_file_name;
+	char user_input[32768] = {0}, history[32768] = {0}, *bin_file_name = NULL, *in_file_name = NULL;
 	int cell[32768] = {0}, current = 0, err = 0, history_counter = 0, loops[2][32768] = {0}, loop_counter = 0;
 	int opt = 0;
 	FILE *infile, *outfile;
 	int opt_infile = 0, opt_outfile = 0, opt_compile = 0;
 	char opt_lang = 'a'; // a for asm, c for c
-	while ((opt = getopt(argc, argv, "i:o:c:l:")) != -1) {
+	while ((opt = getopt(argc, argv, "chl:o:")) != -1) {
 		switch (opt) {
-		case 'i':
-			opt_infile = 1;
-			if (!optarg) {
-				fprintf(stderr, "A file name is required\n");
-				return 1;
-			}
-			infile = fopen(optarg, "r");
-			if (infile == NULL) {
-				fprintf(stderr, "Error %i: file %s does not exist\n", ++err, optarg);
-				return err;
-			}
-			break;
-		case 'o':
-			opt_outfile = 1;
-			if (!optarg) {
-				fprintf(stderr, "A file name is required\n");
-				return 1;
-			}
-			outfile = fopen(optarg, "w");
-			if (outfile == NULL) {
-				fprintf(stderr, "Error: cannot create %s: permission denied!\n", optarg);
-				return 1;
-			}
-			break;
 		case 'c':
 			opt_compile = 1;
-			if (!optarg) {
-				fprintf(stderr, "A file name is required\n");
-				return 1;
-			}
-			bin_file_name = optarg;
 			break;
+		case 'h':
+			usage(argv[0]);
+			return 0;
 		case 'l':
 			if (strlen(optarg) > 1) {
 				fprintf(stderr, "Lang option must be 'a' or 'c'.\n");
@@ -208,11 +193,36 @@ int main(int argc, char** argv) {
 			}
 			opt_lang = optarg[0];
 			break;
+		case 'o':
+			opt_outfile = 1;
+			if (!optarg) {
+				fprintf(stderr, "A file name is required\n");
+				return 1;
+			}
+			bin_file_name = optarg;
+			outfile		  = fopen(bin_file_name, "w");
+			if (outfile == NULL) {
+				fprintf(stderr, "Error: failed to open %s: %s\n", bin_file_name, strerror(errno));
+				return 1;
+			}
+			break;
 
 		default:
 			break;
 		}
 	}
+
+	// search for the source file name in all the arguments
+	for (int i = 0; argv[i] && !infile; i++)
+		if (argv[i][strlen(argv[i]) - 2] == 'b' && argv[i][strlen(argv[i]) - 1] == 'f') {
+			in_file_name = argv[i];
+			infile		 = fopen(in_file_name, "r");
+			if (!infile) {
+				fprintf(stderr, "Error: failed to open %s: %s\n", argv[i], strerror(errno));
+				return 1;
+			}
+			opt_infile = 1;
+		}
 
 	if (opt_infile || opt_outfile || opt_compile) {
 		parse_file(infile, user_input);
@@ -224,8 +234,13 @@ int main(int argc, char** argv) {
 				assembler(outfile, user_input, &loop_counter);
 			else if (opt_lang == 'c' && !opt_compile)
 				cc(outfile, user_input);
-			if (opt_compile)
+			if (opt_compile) {
+				if (!bin_file_name) {
+					in_file_name[strlen(in_file_name) - 3] = '\0';
+					bin_file_name						   = in_file_name;
+				}
 				compiler(bin_file_name, user_input, opt_lang, &loop_counter);
+			}
 		}
 		return err;
 	}
