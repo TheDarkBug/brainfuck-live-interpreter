@@ -38,6 +38,7 @@ bfli
 *.i*86
 *.x86_64
 *.hex
+*.wasm
 
 # Debug files
 *.dSYM/

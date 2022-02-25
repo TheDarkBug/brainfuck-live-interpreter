@@ -5,15 +5,25 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef WASM
+void input_parser(char* input, int cell[], int loops[2][32768], char* history, int* current, int* loop_counter, int* history_counter, char* output) {
+#else
 void input_parser(char* input, int cell[], int loops[2][32768], char* history, int* current, int* loop_counter, int* history_counter) {
-	for (int i = 0; i < 32768 && input[i] != '\n'; i++) {
-		if (input[i] == '.')
+#endif
+	for (int i = 0; i < 32768 && input[i] != '\n' && input[i] != 0; i++) {
+		if (input[i] == '.') {
+#ifdef WASM
+			sprintf(output + strlen(output), "%c", cell[*current]);
+#else
 			printf("%c", (cell[*current]));
-		else if (input[i] == ',') {
+#endif
+		} else if (input[i] == ',') {
+#ifndef WASM
 			printf(", input: ");
 			cell[*current] = getchar();
 			while (getchar() != '\n')
 				;
+#endif
 		} else if (input[i] == '[') {
 			(*loop_counter)++;
 			loops[0][*loop_counter] = *history_counter;
@@ -30,6 +40,7 @@ void input_parser(char* input, int cell[], int loops[2][32768], char* history, i
 		(*history_counter) += input[i] == '+' || input[i] == '-' || input[i] == '>' || input[i] == '<' || input[i] == '.' || input[i] == ',' || input[i] == '[' || input[i] == ']';
 	}
 }
+#ifndef WASM
 
 int assembler(FILE* output, char* input, int* loop_counter) {
 	int plus_count = 0, minus_count = 0, indent_count = 0;
@@ -131,7 +142,6 @@ int compiler(char* fname, char* input, char lang, int* loop_counter) {
 	return 0;
 }
 char* file_to_mem(FILE* source, size_t* size) {
-	// FILE* source = fopen(filename, "r");
 	char* target = NULL;
 	if (size == NULL)
 		size = malloc(sizeof(size_t));
@@ -167,18 +177,26 @@ void usage(char* program) {
 		   "\t-c\tCompile the source code\n"
 		   "\t-h\tPrint this help\n"
 		   "\t-l\tChoose compile language: 'a'ssembly or 'c'\n"
+		   "\t-i\tRun directly from stdin\n"
 		   "\t-o\tOutput file\n",
 		   program);
 }
 
 int main(int argc, char** argv) {
+#else  // WASM
+void wasmain(char* input, char* output, int sz) {
+#endif // WASM
 	char user_input[32768] = {0}, history[32768] = {0}, *bin_file_name = NULL, *in_file_name = NULL;
 	int cell[32768] = {0}, current = 0, err = 0, history_counter = 0, loops[2][32768] = {0}, loop_counter = 0;
 	int opt = 0;
+#ifdef WASM
+	input_parser(input, cell, loops, history, &current, &loop_counter, &history_counter, output);
+	return;
+#else
 	FILE *infile, *outfile;
 	int opt_infile = 0, opt_outfile = 0, opt_compile = 0;
 	char opt_lang = 'a'; // a for asm, c for c
-	while ((opt = getopt(argc, argv, "chl:o:")) != -1) {
+	while ((opt = getopt(argc, argv, "chl:i:o:")) != -1) {
 		switch (opt) {
 		case 'c':
 			opt_compile = 1;
@@ -187,22 +205,33 @@ int main(int argc, char** argv) {
 			usage(argv[0]);
 			return 0;
 		case 'l':
+			if (!optarg) {
+				fprintf(stderr, "ERROR: language not specified.\n");
+				return 1;
+			}
 			if (strlen(optarg) > 1) {
-				fprintf(stderr, "Lang option must be 'a' or 'c'.\n");
+				fprintf(stderr, "ERROR: lang option must be 'a' or 'c'.\n");
 				return 1;
 			}
 			opt_lang = optarg[0];
 			break;
-		case 'o':
-			opt_outfile = 1;
+		case 'i':
 			if (!optarg) {
-				fprintf(stderr, "A file name is required\n");
+				fprintf(stderr, "ERROR: missing option for -i.\n");
 				return 1;
 			}
+			input_parser(optarg, cell, loops, history, &current, &loop_counter, &history_counter);
+			return 0;
+		case 'o':
+			if (!optarg) {
+				fprintf(stderr, "ERROR: a file name is required\n");
+				return 1;
+			}
+			opt_outfile	  = 1;
 			bin_file_name = optarg;
 			outfile		  = fopen(bin_file_name, "w");
 			if (outfile == NULL) {
-				fprintf(stderr, "Error: failed to open %s: %s\n", bin_file_name, strerror(errno));
+				fprintf(stderr, "ERROR: failed to open %s: %s\n", bin_file_name, strerror(errno));
 				return 1;
 			}
 			break;
@@ -328,4 +357,5 @@ int main(int argc, char** argv) {
 	}
 	printf("\n");
 	return err;
+#endif
 }
